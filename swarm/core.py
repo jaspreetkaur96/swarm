@@ -24,7 +24,26 @@ __CTX_VARS_NAME__ = "context_variables"
 
 
 class Swarm:
+    """
+    Orchestrates conversations with AI agents, allowing for the execution of custom
+    functions and tool calls within the conversation. It handles chat completion,
+    tool calls, and function results, providing a flexible framework for complex
+    interactions.
+
+    Attributes:
+        client (OpenAI|None): Initialized in the `__init__` method. It is used to
+            interact with the OpenAI API.
+
+    """
     def __init__(self, client=None):
+        """
+        Initializes a Swarm object with an optional OpenAI client instance. If no
+        client is provided, it defaults to creating a new instance of OpenAI.
+
+        Args:
+            client (OpenAI | None): Defaulted to None.
+
+        """
         if not client:
             client = OpenAI()
         self.client = client
@@ -38,6 +57,28 @@ class Swarm:
         stream: bool,
         debug: bool,
     ) -> ChatCompletionMessage:
+        """
+        Constructs a chat completion request by combining user history, system
+        instructions, and context variables, then sends it to a chat client for processing.
+
+        Args:
+            agent (Agent): Used to retrieve instructions from its `instructions`
+                method or attribute.
+            history (List): Represented by a list of messages, where each message
+                is a dictionary containing a "role" and a "content".
+            context_variables (dict): Converted to a `defaultdict` with a default
+                value of an empty string. This allows it to handle missing keys.
+            model_override (str): Optional, allowing the user to override the
+                default model with a specific model.
+            stream (bool): Used to control whether the chat completion is streamed
+                or not.
+            debug (bool): Used to control the display of debug messages, likely
+                print statements, within the function.
+
+        Returns:
+            ChatCompletionMessage: An object representing the completion of a chat.
+
+        """
         context_variables = defaultdict(str, context_variables)
         instructions = (
             agent.instructions(context_variables)
@@ -69,6 +110,25 @@ class Swarm:
         return self.client.chat.completions.create(**create_params)
 
     def handle_function_result(self, result, debug) -> Result:
+        """
+        Handles the result of a function call, returning a Result object based on
+        the type of the result. It supports Result, Agent, and other types,
+        attempting to convert them to strings if necessary and logging errors if
+        conversion fails.
+
+        Args:
+            result (Result | Agent | Any): Matched against different types using
+                a pattern matching statement, allowing for various types of results
+                from function calls.
+            debug (bool): Used to control debug printing. It is likely used to
+                enable or disable the printing of debug messages, with `True`
+                indicating that debug messages should be printed and `False`
+                indicating that they should not.
+
+        Returns:
+            Result: An object containing a 'value' and an optional 'agent' attribute.
+
+        """
         match result:
             case Result() as result:
                 return result
@@ -93,6 +153,25 @@ class Swarm:
         context_variables: dict,
         debug: bool,
     ) -> Response:
+        """
+        Processes a list of tool calls, executing corresponding functions from a
+        given list of agent functions and returning a response with results and
+        potentially updated context variables.
+
+        Args:
+            tool_calls (List[ChatCompletionMessageToolCall]): Expected to contain
+                a list of tool calls.
+            functions (List[AgentFunction]): Containing a list of AgentFunction objects.
+            context_variables (dict): Used to store variables that are shared
+                across multiple function calls. It is referenced by the special
+                key `__CTX_VARS_NAME__` in the function code.
+            debug (bool): Used to enable or disable debug printing within the function.
+
+        Returns:
+            Response: A composite object containing a list of messages, an optional
+            agent, and an updated context.
+
+        """
         function_map = {f.__name__: f for f in functions}
         partial_response = Response(
             messages=[], agent=None, context_variables={})
@@ -146,6 +225,32 @@ class Swarm:
         max_turns: int = float("inf"),
         execute_tools: bool = True,
     ):
+        """
+        Simulates a conversation between an agent and a chat model, streaming
+        intermediate results and executing tool calls as needed, until a maximum
+        number of turns is reached or tool calls are exhausted.
+
+        Args:
+            agent (Agent): Assigned to the `active_agent` variable. It represents
+                an active participant in the conversation and is used to interact
+                with the chat completion model.
+            messages (List): Filled with the conversation history.
+            context_variables (dict): Defaulted to an empty dictionary. It is used
+                to store and update context information throughout the conversation.
+            model_override (str): Optional. It allows for the specification of a
+                custom model to be used for chat completion.
+            debug (bool): Used to enable or disable debug printing. When `debug`
+                is True, debug messages are printed.
+            max_turns (int): Optional. It specifies the maximum number of turns
+                to be executed. If not provided, the function will execute indefinitely.
+            execute_tools (bool): Set to True by default. It controls whether to
+                execute tool calls in the completion messages.
+
+        Yields:
+            Dict[str,Any]|str: A stream of messages, including the start and end
+            of each turn, tool calls, and the final response.
+
+        """
         active_agent = agent
         context_variables = copy.deepcopy(context_variables)
         history = copy.deepcopy(messages)
@@ -239,6 +344,38 @@ class Swarm:
         max_turns: int = float("inf"),
         execute_tools: bool = True,
     ) -> Response:
+        """
+        Simulates a conversation between an agent and a model, processing messages
+        in a loop until a maximum number of turns is reached or a specific condition
+        is met, handling tool calls and updating context variables as necessary.
+
+        Args:
+            agent (Agent): Required for the function to execute. It is used to
+                interact with a conversational model or AI system.
+            messages (List): Expected to contain a list of messages.
+            context_variables (dict): Optional. It represents a dictionary of
+                variables that are used to provide additional context to the conversation.
+            model_override (str): Optional. It allows the caller to override the
+                model used in the chat completion process.
+            stream (bool): Set to True by default, it determines whether to run
+                the function in stream mode or not. If True, the function calls
+                `run_and_stream` instead of executing the main while loop.
+            debug (bool): Used to control the level of debugging information printed
+                during the execution of the function.
+            max_turns (int): Defaulted to infinity, meaning the loop will run
+                indefinitely unless a finite number is provided as the argument.
+            execute_tools (bool): True by default. It determines whether to execute
+                tool calls or not. If `execute_tools` is False, tool calls are
+                ignored, and messages are appended to the history without execution.
+
+        Returns:
+            Response: A dictionary containing the following keys:
+            
+            - `messages`: a list of messages exchanged during the conversation
+            - `agent`: the current active agent
+            - `context_variables`: a dictionary of variables used in the conversation
+
+        """
         if stream:
             return self.run_and_stream(
                 agent=agent,
