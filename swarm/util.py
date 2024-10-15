@@ -3,6 +3,18 @@ from datetime import datetime
 
 
 def debug_print(debug: bool, *args: str) -> None:
+    """
+    Prints a timestamped message in a specific color scheme, but only if the `debug`
+    flag is `True`. It takes a variable number of string arguments, which are
+    joined into a single message before being printed.
+
+    Args:
+        debug (bool): Used to determine whether to print debug messages. When
+            `debug` is `False`, the function returns immediately without printing
+            any message.
+        *args (str): List of positional arguments
+
+    """
     if not debug:
         return
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -11,6 +23,21 @@ def debug_print(debug: bool, *args: str) -> None:
 
 
 def merge_fields(target, source):
+    """
+    Merges nested dictionaries, concatenating string values and recursively merging
+    nested dictionaries. It takes two arguments: `target` and `source`, where
+    `source` is merged into `target`.
+
+    Args:
+        target (Dict[str | int | dict | None, str | int | dict | None].): Used to
+            accumulate merged fields from the `source` parameter. It is expected
+            to be a dictionary, but its initial value is not specified in the
+            function definition.
+        source (Dict[str | int | List[str] | Dict[str, int]]): Expected to have
+            key-value pairs where the key is a string and the value can be a string,
+            a dictionary, a list of strings, or an integer.
+
+    """
     for key, value in source.items():
         if isinstance(value, str):
             target[key] += value
@@ -19,6 +46,21 @@ def merge_fields(target, source):
 
 
 def merge_chunk(final_response: dict, delta: dict) -> None:
+    """
+    Updates a dictionary `final_response` by merging it with a delta `delta`. It
+    removes the "role" key from `delta` and then merges the remaining keys into
+    `final_response`. It also handles tool calls by merging the first tool call
+    into the corresponding list in `final_response`.
+
+    Args:
+        final_response (dict): Modified by the function to merge data from the
+            `delta` parameter into it.
+        delta (dict): Used to merge changes into the `final_response` dictionary.
+            It appears to be a collection of updates, possibly from a previous
+            response. The `delta` dictionary is modified within the function,
+            removing the "role" key.
+
+    """
     delta.pop("role", None)
     merge_fields(final_response, delta)
 
@@ -30,15 +72,18 @@ def merge_chunk(final_response: dict, delta: dict) -> None:
 
 def function_to_json(func) -> dict:
     """
-    Converts a Python function into a JSON-serializable dictionary
-    that describes the function's signature, including its name,
-    description, and parameters.
+    Converts a given function's metadata into a JSON-compatible dictionary. It
+    extracts the function's name, description, and parameters, including their
+    types and whether they are required.
 
     Args:
-        func: The function to be converted.
+        func (Callable[[ typing.Callable ], dict]): Used to represent a function
+            whose signature is to be converted to JSON format. It is expected to
+            be a callable object, such as a function or method.
 
     Returns:
-        A dictionary representing the function's signature in JSON format.
+        dict: A JSON representation of a function.
+
     """
     type_map = {
         str: "string",
